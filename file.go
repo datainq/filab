@@ -8,8 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/sirupsen/logrus"
+
 	"github.com/datainq/rwmc"
+	"github.com/sirupsen/logrus"
 )
 
 func MustCreateReader(p string) io.ReadCloser {
@@ -55,6 +56,7 @@ func NewFileWriter(file string) (w io.WriteCloser, err error) {
 	}
 	return MaybeAddCompression(file, w)
 }
+
 // CopyFile copies the contents from src to dst atomically.
 // If dst does not exist, CopyFile creates it with permissions perm.
 // If the copy fails, CopyFile aborts and dst is preserved.

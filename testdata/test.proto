@@ -1,0 +1,12 @@
+// To generate Go file run:
+// docker run --rm -it -v $PWD:/data:ro -v /tmp/testpb:/gen grpc/go protoc \
+//  --go_out=plugins=grpc,import_path=data:/gen --proto_path /data /data/test.proto
+syntax = "proto3";
+
+package testdata;
+
+option go_package = "github.com/datainq/filab/testdata";
+
+message Entry {
+    string text = 1;
+}
