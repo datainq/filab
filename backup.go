@@ -180,12 +180,13 @@ func (b *Backuper) getClient() *CloudStorageClient {
 }
 
 func (b *Backuper) BackupNow(ctx context.Context) error {
+	b.guardRun.Lock()
+	defer b.guardRun.Unlock()
 	b.guardModify.Lock()
 	b.inProgress = append(b.inProgress, b.queue...)
 	b.queue = nil
 	b.guardModify.Unlock()
-	b.guardRun.Lock()
-	defer b.guardRun.Unlock()
+
 	if len(b.inProgress) == 0 {
 		logrus.Debug("nothing to backup")
 		return nil
