@@ -30,6 +30,9 @@ func (g *GCSPath) WithBucket(b string) *GCSPath {
 
 func (g *GCSPath) WithPath(p string) *GCSPath {
 	var c GCSPath = *g
+	if strings.HasPrefix(p, "/") {
+		p = p[1:]
+	}
 	c.Path = p
 	return &c
 }
