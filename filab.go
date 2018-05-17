@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 )
 
 type FileStore interface {
@@ -50,7 +51,7 @@ type FileHelper struct {
 	createNewDirs bool
 }
 
-func WithKeyFile(f string) FHOption {
+func WithKeyFile(f string) Option {
 	return &withKeyFile{f}
 }
 
@@ -68,11 +69,11 @@ func (newDir) Apply(f *FileHelper) {
 	f.createNewDirs = true
 }
 
-func WithNewDir() FHOption {
+func WithNewDir() Option {
 	return newDir(true)
 }
 
-func WithClient(c *storage.Client) FHOption {
+func WithClient(c *storage.Client) Option {
 	return withClient{c}
 }
 
@@ -92,15 +93,15 @@ func (w withTimeout) Apply(f *FileHelper) {
 	f.timeout = w.timeout
 }
 
-func WithTimeout(t time.Duration) FHOption {
+func WithTimeout(t time.Duration) Option {
 	return withTimeout{t}
 }
 
-type FHOption interface {
+type Option interface {
 	Apply(*FileHelper)
 }
 
-func NewFileHelper(opts ...FHOption) *FileHelper {
+func NewFileHelper(opts ...Option) *FileHelper {
 	r := &FileHelper{
 		m:       &sync.RWMutex{},
 		baseCtx: context.Background(),
@@ -123,9 +124,9 @@ func (f *FileHelper) getClient() (*storage.Client, error) {
 		f.m.Unlock()
 		return f.client, nil
 	}
-	var opts []option.ClientOption
+	opts := []option.ClientOption{option.WithGRPCDialOption(grpc.WithBlock())}
 	if len(f.keyFile) > 0 {
-		opts = append(opts, option.WithServiceAccountFile(f.keyFile))
+		opts = append(opts, option.WithCredentialsFile(f.keyFile))
 	}
 	var err error
 	ctx, canc := f.createContext()
@@ -162,12 +163,13 @@ func (f *FileHelper) NewReader(p string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if strings.HasSuffix(p, ".7z") {
-		r, err = zlib.NewReader(r)
+		return zlib.NewReader(r)
 	} else if strings.HasSuffix(p, ".gz") {
-		r, err = gzip.NewReader(r)
+		return gzip.NewReader(r)
 	}
-	return r, err
+	return r, nil
 }
 
 func (f *FileHelper) NewPbReader(p string) (pbio.ReadCloser, error) {
@@ -310,7 +312,7 @@ func AggregateProtoFiles(files []string, dest io.WriteCloser) error {
 			continue
 		}
 
-		r1 := pbio.NewDelimitedCopier(r, 1000000) // 1MB
+		r1 := pbio.NewDelimitedCopier(r, DefaultProtoMaxSize) // 1MB
 		n := 0
 		for err = nil; err == nil; err = r1.CopyMsg(dest) {
 			n++
