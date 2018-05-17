@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 )
 
 type CloudStorageClient struct {
@@ -24,7 +25,9 @@ type CloudStorageClient struct {
 }
 
 func NewCloudStorageClient(bucketName string, keyFile string) (*CloudStorageClient, error) {
-	var opts []option.ClientOption
+	opts := []option.ClientOption{
+		option.WithGRPCDialOption(grpc.WithBlock()), // enforces a wait until connected
+	}
 	if len(keyFile) > 0 {
 		opts = append(opts, option.WithCredentialsFile(keyFile))
 	}
