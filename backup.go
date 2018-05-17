@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
 )
@@ -147,7 +148,7 @@ func (b *Backuper) backup(gceClient *CloudStorageClient, baseCtx context.Context
 		err := CopyToCloud(gceClient, ctx, mt.f, destPath)
 		canc()
 		if err != nil {
-			multierror.Append(retErr, err)
+			retErr = multierror.Append(retErr, err)
 			left = append(left, mt)
 			continue
 		}
@@ -162,21 +163,20 @@ func (b *Backuper) backup(gceClient *CloudStorageClient, baseCtx context.Context
 	return nil
 }
 
-func (b *Backuper) getClient() *CloudStorageClient {
+func (b *Backuper) getClient() (*CloudStorageClient, error) {
 	gceClient := b.gceClient
 	if gceClient == nil {
 		logrus.Debug("connect to Cloud Storage")
 		var err error
 		gceClient, err = NewCloudStorageClient(b.GcsPath.Bucket, b.GceKeyFile)
 		if err != nil {
-			// TODO should not fail miserably
-			logrus.Fatalf("cannot create GCE client: %s", err)
+			return nil, errwrap.Wrapf("cannot create GCE client: {{err}}", err)
 		}
 		if b.Interval < 15*time.Minute {
 			b.gceClient = gceClient
 		}
 	}
-	return gceClient
+	return gceClient, nil
 }
 
 func (b *Backuper) BackupNow(ctx context.Context) error {
@@ -197,15 +197,18 @@ func (b *Backuper) BackupNow(ctx context.Context) error {
 		return b.inProgress[i].t.Before(b.inProgress[j].t)
 	})
 
-	gceClient := b.getClient()
+	gceClient, err := b.getClient()
+	if err != nil {
+		return err
+	}
 	if b.gceClient == nil {
 		defer gceClient.Close()
 	}
 
 	if b.Aggregate {
-		b.backupAggregated(gceClient, ctx)
+		return b.backupAggregated(gceClient, ctx)
 	} else {
-		b.backup(gceClient, ctx)
+		return b.backup(gceClient, ctx)
 	}
 
 	return nil
