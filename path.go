@@ -7,7 +7,6 @@ import (
 )
 
 type Path interface {
-	New(string) Path
 	Join(p ...string) Path
 	String() string
 	Copy() Path
