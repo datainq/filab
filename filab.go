@@ -1,33 +1,29 @@
 package filab
 
 import (
+	"context"
 	"io"
+	"path/filepath"
 	"regexp"
 	"time"
 
-	"context"
-
-	"path/filepath"
-
 	"github.com/orian/pbio"
-	"github.com/sirupsen/logrus"
 )
 
 type DriverType *string
 
 type StorageDriver interface {
-	Type() DriverType
 	Name() string
-	Exist(Path) bool
+	Scheme() string
+	Type() DriverType
+	Parse(s string) (Path, error)
 
-	NewReader(Path) (io.ReadCloser, error)
-	NewReaderContext(context.Context, Path) (io.ReadCloser, error)
+	Exist(context.Context, Path) (bool, error)
+	NewReader(context.Context, Path) (io.ReadCloser, error)
+	NewWriter(context.Context, Path) (io.WriteCloser, error)
 
-	NewWriter(Path) (io.ReadCloser, error)
-	NewWriterContext(context.Context, Path) (io.ReadCloser, error)
-
-	ListAll(Path) ([]Path, string)
-	Walk(Path, walkFunc filepath.WalkFunc)
+	List(context.Context, Path) ([]Path, error)
+	Walk(context.Context, Path, filepath.WalkFunc)
 }
 
 type FileStore interface {
@@ -51,40 +47,16 @@ type FileStore interface {
 	NewPbWriter(p string) (pbio.WriteCloser, error)
 }
 
-func AggregateProtoFiles(files []string, dest io.WriteCloser) error {
-	for _, f := range files {
-		r, err := NewFileReader(f)
-		if err != nil {
-			if err != io.ErrUnexpectedEOF && err != io.EOF {
-				return err
-			}
-			continue
-		}
+var (
+	register map[string]StorageDriver
+	local    StorageDriver
+)
 
-		r1 := pbio.NewDelimitedCopier(r, DefaultProtoMaxSize) // 1MB
-		n := 0
-		for err = nil; err == nil; err = r1.CopyMsg(dest) {
-			n++
-		}
-		switch err {
-		case io.ErrUnexpectedEOF:
-			logrus.Errorf("corrupted file: %s", f)
-			fallthrough
-		case io.EOF:
-			err = nil
-			fallthrough
-		case nil:
-			r = r1
-		default:
-			// writing may be corrupted
-			r1.Close()
-			return err
-		}
-		logrus.Debugf("file: %s DONE, read msg: %d", f, n)
-		if err = r.Close(); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-			logrus.Errorf("fail on a file: %s", f)
-			return err
-		}
+func RegisterDriver(driver StorageDriver) {
+	scheme := driver.Scheme()
+	if scheme != "" {
+		register[scheme] = driver
+	} else {
+		local = driver
 	}
-	return nil
 }

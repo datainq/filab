@@ -2,6 +2,7 @@ package local
 
 import (
 	"path"
+
 	"github.com/datainq/filab"
 )
 
@@ -13,6 +14,10 @@ func (l LocalPath) Join(p ...string) filab.Path {
 
 func (l LocalPath) String() string {
 	return string(l)
+}
+
+func (LocalPath) New(s string) filab.Path {
+	return LocalPath(s)
 }
 
 func (l LocalPath) Copy() filab.Path {

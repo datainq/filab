@@ -7,37 +7,25 @@ import (
 )
 
 type Path interface {
+	New(string) Path
 	Join(p ...string) Path
 	String() string
 	Copy() Path
 }
 
-type ParseFunc func(string) (Path,error)
-
-var (
-	register map[string]ParseFunc
-	local ParseFunc
-)
-
-func RegisterDriver(prefix string, parse ParseFunc) {
-	if prefix != "" {
-		register[prefix] = parse
-	} else {
-		local = parse
-	}
-}
+type ParseFunc func(string) (Path, error)
 
 func Parse(s string) (Path, error) {
-	for k,v := range register{
+	for k, v := range register {
 		if strings.HasPrefix(s, k) {
-			g, err := v(s)
+			g, err := v.Parse(s)
 			if err != nil {
-				return nil,err
+				return nil, err
 			}
 			return g, nil
 		}
 	}
-	return local(s)
+	return local.Parse(s)
 }
 
 func MustParse(s string) Path {
