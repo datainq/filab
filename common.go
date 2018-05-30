@@ -104,8 +104,8 @@ func FindLast(client *storage.Client, gs *GCSPath, pattern *regexp.Regexp) (stri
 	return FindLastForDate(client, gs, pattern, time.Now().UTC())
 }
 
-func GenSharded(dirPath *GCSPath, prefix string, numShards int, suffix string) []*GCSPath {
-	var paths []*GCSPath
+func GenSharded(dirPath Path, prefix string, numShards int, suffix string) []Path {
+	var paths []Path
 	for i := 0; i < numShards; i++ {
 		paths = append(paths,
 			dirPath.Join(fmt.Sprintf("%s-%05d-of-%05d%s", prefix, i, numShards, suffix)))
@@ -114,13 +114,13 @@ func GenSharded(dirPath *GCSPath, prefix string, numShards int, suffix string) [
 }
 
 // TODO URGENT this is complex and needs tests
-func FindAnyForDateSharded(client *storage.Client, gs *GCSPath, pattern *regexp.Regexp, date time.Time) ([]string, error) {
+func FindAnyForDateSharded(client *storage.Client, gs GCSPath, pattern *regexp.Regexp, date time.Time) ([]string, error) {
 	if pattern.NumSubexp() != 3 {
 		logrus.Errorf("expecting a pattern with 3 subexp, got: %d", pattern.NumSubexp())
 	}
 	bucket := client.Bucket(gs.Bucket)
 
-	pathPrefix := gs.Join(date.Format("2006/01/02"))
+	pathPrefix := gs.Join(date.Format("2006/01/02")).(GCSPath)
 	logrus.Debugf("search with basePath: %s", pathPrefix)
 	objc := BucketFind(bucket, pathPrefix.Path)
 	var names []string

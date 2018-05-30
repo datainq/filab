@@ -151,13 +151,11 @@ func CopyToCloud(gclient *CloudStorageClient, ctx context.Context,
 	logrus.Debugf("creating local reader")
 	src, err := os.Open(filePath)
 	if err != nil {
-		writer.CloseWithError(err)
 		return errwrap.Wrapf("cannot open file to read: {{err}}", err)
 	}
 	defer src.Close()
 	logrus.Debugf("copying")
 	if _, err = io.Copy(writer, src); err != nil {
-		writer.CloseWithError(err)
 		return errwrap.Wrapf("problem with copying content: {{err}}", err)
 	}
 	logrus.Debugf("closing cloud writer")

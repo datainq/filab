@@ -21,6 +21,14 @@ func MustCreateReader(p string) io.ReadCloser {
 	return f
 }
 
+func MustCreateWriter(p string) io.WriteCloser {
+	f, err := NewFileWriter(p)
+	if err != nil {
+		logrus.Fatalf("could not open: %s", err)
+	}
+	return f
+}
+
 func NewFileReader(file string) (f io.ReadCloser, err error) {
 	f, err = os.Open(file)
 	if err != nil {

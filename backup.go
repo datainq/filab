@@ -143,7 +143,7 @@ func (b *Backuper) backup(gceClient *CloudStorageClient, baseCtx context.Context
 		if b.StripSrcPrefix != "" {
 			destPath = strings.TrimPrefix(mt.f, b.StripSrcPrefix)
 		}
-		destPath = b.GcsPath.Join(destPath).Path
+		destPath = b.GcsPath.Join(destPath).(GCSPath).Path
 		ctx, canc := context.WithTimeout(baseCtx, time.Minute)
 		err := CopyToCloud(gceClient, ctx, mt.f, destPath)
 		canc()
