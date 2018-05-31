@@ -1,4 +1,4 @@
-package filab
+package fileutils
 
 import (
 	"compress/gzip"

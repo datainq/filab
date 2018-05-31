@@ -1,4 +1,4 @@
-package filab
+package local
 
 import (
 	"io/ioutil"

@@ -16,11 +16,72 @@ import (
 
 var googleCloudStorage = "Google Cloud Storage Driver"
 
-type GcsDriver struct {
+type Option interface {
+	apply(*GcsDriver)
+}
+
+type withBlock struct{}
+
+func (withBlock) apply(g *GcsDriver) {
+	g.connectOnNew = true
+}
+
+func WithBlock() Option {
+	return withBlock{}
+}
+
+func WithKeyFile(f string) Option {
+	return &withKeyFile{f}
+}
+
+type withKeyFile struct {
+	f string
+}
+
+func (w *withKeyFile) apply(f *GcsDriver) {
+	f.keyFile = w.f
+}
+
+//type newDir bool
+//
+//func (newDir) apply(f *GcsDriver) {
+//	f.createNewDirs = true
+//}
+//
+//func WithNewDir() Option {
+//	return newDir(true)
+//}
+
+func WithClient(c *storage.Client) Option {
+	return withClient{c}
+}
+
+type withClient struct {
+	c *storage.Client
+}
+
+func (w withClient) apply(f *GcsDriver) {
+	f.client = w.c
+}
+
+type withTimeout struct {
 	timeout time.Duration
-	keyFile string
-	client  *storage.Client
-	m       sync.RWMutex
+}
+
+func (w withTimeout) apply(f *GcsDriver) {
+	f.timeout = w.timeout
+}
+
+func WithTimeout(t time.Duration) Option {
+	return withTimeout{t}
+}
+
+type GcsDriver struct {
+	connectOnNew bool
+	timeout      time.Duration
+	keyFile      string
+	client       *storage.Client
+	m            sync.RWMutex
 }
 
 func (GcsDriver) Name() string {
@@ -31,8 +92,12 @@ func (GcsDriver) Scheme() string {
 	return "gs"
 }
 
-func (GcsDriver) Type() filab.DriverType {
+func Type() filab.DriverType {
 	return filab.DriverType(&googleCloudStorage)
+}
+
+func (GcsDriver) Type() filab.DriverType {
+	return Type()
 }
 
 func (*GcsDriver) Parse(s string) (filab.Path, error) {
@@ -54,6 +119,8 @@ func (f *GcsDriver) getClient() (*storage.Client, error) {
 	opts := []option.ClientOption{option.WithGRPCDialOption(grpc.WithBlock())}
 	if len(f.keyFile) > 0 {
 		opts = append(opts, option.WithCredentialsFile(f.keyFile))
+	} else {
+		opts = append(opts, option.WithGRPCDialOption(grpc.WithInsecure()))
 	}
 	var err error
 	ctx, canc := context.WithTimeout(context.Background(), f.timeout)

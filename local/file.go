@@ -1,4 +1,4 @@
-package filab
+package local
 
 import (
 	"compress/gzip"
@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/datainq/rwmc"
+	"github.com/datainq/filab"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,28 +41,13 @@ func NewFileReader(file string) (f io.ReadCloser, err error) {
 	}
 	return f, err
 }
-func MaybeAddCompression(file string, w io.WriteCloser) (io.WriteCloser, error) {
-	if strings.HasSuffix(file, ".7z") {
-		w1, err := zlib.NewWriterLevel(w, zlib.BestCompression)
-		if err != nil {
-			return w1, err
-		}
-		return rwmc.NewWriteMultiCloser(w1, w), nil
-	} else if strings.HasSuffix(file, ".gz") {
-		w1, err := gzip.NewWriterLevel(w, gzip.BestCompression)
-		if err != nil {
-			return w1, err
-		}
-		return rwmc.NewWriteMultiCloser(w1, w), nil
-	}
-	return w, nil
-}
+
 func NewFileWriter(file string) (w io.WriteCloser, err error) {
 	w, err = os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0640)
 	if err != nil {
 		return nil, err
 	}
-	return MaybeAddCompression(file, w)
+	return filab.MaybeAddCompression(file, w)
 }
 
 // CopyFile copies the contents from src to dst atomically.

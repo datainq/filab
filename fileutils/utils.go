@@ -1,15 +1,16 @@
-package filab
+package fileutils
 
 import (
 	"io"
 
+	"github.com/datainq/filab"
 	"github.com/orian/pbio"
 	"github.com/sirupsen/logrus"
 )
 
-func AggregateProtoFiles(files []string, dest io.WriteCloser) error {
+func AggregateProtoFiles(storage filab.FileStorage, files []filab.Path, dest io.Writer) error {
 	for _, f := range files {
-		r, err := NewFileReader(f)
+		r, err := storage.NewReaderS(f)
 		if err != nil {
 			if err != io.ErrUnexpectedEOF && err != io.EOF {
 				return err

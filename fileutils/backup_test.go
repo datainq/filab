@@ -1,13 +1,15 @@
-package filab
+package fileutils
 
 import (
 	"bytes"
 	"io"
 	"testing"
 
+	"github.com/datainq/filab"
+	"github.com/datainq/filab/local"
+	"github.com/datainq/filab/testdata"
 	"github.com/orian/pbio"
 	"github.com/sirupsen/logrus"
-	"github.com/datainq/filab/testdata"
 )
 
 type CloseBuffer struct {
@@ -24,16 +26,16 @@ func (c *CloseBuffer) Write(b []byte) (n int, err error) {
 
 func TestAggregate(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	files := []string{
-		"testdata/20170126/143235",
-		"testdata/20170126/143436",
-		"testdata/20170126/1528.pb",
-		"testdata/20170126/1650.pb",
-		"testdata/20170126/1650.pb.gz",
+	files := []filab.Path{
+		local.LocalPath("testdata/20170126/143235"),
+		local.LocalPath("testdata/20170126/143436"),
+		local.LocalPath("testdata/20170126/1528.pb"),
+		local.LocalPath("testdata/20170126/1650.pb"),
+		local.LocalPath("testdata/20170126/1650.pb.gz"),
 	}
 	buf := &CloseBuffer{}
 	var err error
-	if err = AggregateProtoFiles(files, buf); err != nil {
+	if err = AggregateProtoFiles(filab.DefaultFileStore(), files, buf); err != nil {
 		t.Errorf("problem: %s", err)
 		t.FailNow()
 	}

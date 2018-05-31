@@ -10,10 +10,52 @@ import (
 	"github.com/datainq/filab"
 )
 
+const (
+	DefaultDirPerm  = 0740
+	DefaultFilePerm = 0540
+)
+
 var localDisk = "local disk"
 
+type Option interface {
+	apply(*driver)
+}
+
+type newDir bool
+
+func (newDir) apply(d *driver) {
+	d.createNewDirs = true
+}
+
+// WithNewDir makes a driver to create new directories if they do not exist.
+func WithNewDir() Option {
+	return newDir(true)
+}
+
+type DirMode os.FileMode
+
+func (m DirMode) apply(d *driver) {
+	d.dirMode = os.FileMode(m)
+}
+
+func WithDirMode(mode os.FileMode) Option {
+	return DirMode(mode)
+}
+
+type FileMode os.FileMode
+
+func (m FileMode) apply(d *driver) {
+	d.fileMode = os.FileMode(m)
+}
+
+func WithFileMode(mode os.FileMode) Option {
+	return FileMode(mode)
+}
+
 type driver struct {
-	mode os.FileMode
+	fileMode      os.FileMode
+	dirMode       os.FileMode
+	createNewDirs bool
 }
 
 func (driver) Name() string {
@@ -24,8 +66,12 @@ func (driver) Scheme() string {
 	return ""
 }
 
-func (driver) Type() filab.DriverType {
+func Type() filab.DriverType {
 	return filab.DriverType(&localDisk)
+}
+
+func (driver) Type() filab.DriverType {
+	return Type()
 }
 
 func (driver) Parse(s string) (filab.Path, error) {
@@ -47,7 +93,7 @@ func (driver) NewReader(_ context.Context, p filab.Path) (io.ReadCloser, error) 
 }
 
 func (d driver) NewWriter(_ context.Context, p filab.Path) (io.WriteCloser, error) {
-	return os.OpenFile(p.String(), os.O_CREATE|os.O_WRONLY, d.mode)
+	return os.OpenFile(p.String(), os.O_CREATE|os.O_WRONLY, d.fileMode)
 }
 
 func (driver) List(_ context.Context, p filab.Path) ([]filab.Path, error) {
@@ -66,8 +112,13 @@ func (driver) Walk(context.Context, filab.Path, filepath.WalkFunc) {
 	panic("implement me")
 }
 
-func New() driver {
-	return driver{
-		0640,
+func New(opts ...Option) *driver {
+	d := &driver{
+		fileMode: DefaultFilePerm,
+		dirMode:  DefaultDirPerm,
 	}
+	for _, o := range opts {
+		o.apply(d)
+	}
+	return d
 }

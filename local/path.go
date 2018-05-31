@@ -24,6 +24,10 @@ func (l LocalPath) Copy() filab.Path {
 	return l
 }
 
+func (LocalPath) Type() filab.DriverType {
+	return Type()
+}
+
 func ParseLocalPath(s string) (LocalPath, error) {
 	return LocalPath(s), nil
 }

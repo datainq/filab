@@ -1,11 +1,12 @@
 package gcs
 
 import (
-	"fmt"
-	"strings"
-	"path"
-	"net/url"
 	"errors"
+	"fmt"
+	"net/url"
+	"path"
+	"strings"
+
 	"github.com/datainq/filab"
 )
 
@@ -22,6 +23,14 @@ func (g GCSPath) Copy() filab.Path {
 	return g
 }
 
+func (g GCSPath) Join(p ...string) filab.Path {
+	return g.WithPath(path.Join(append([]string{g.Path}, p...)...))
+}
+
+func (g GCSPath) Type() filab.DriverType {
+	return Type()
+}
+
 func (g GCSPath) WithBucket(b string) GCSPath {
 	g.Bucket = b
 	return g
@@ -33,10 +42,6 @@ func (g GCSPath) WithPath(p string) GCSPath {
 	}
 	g.Path = p
 	return g
-}
-
-func (g GCSPath) Join(p ...string) filab.Path {
-	return g.WithPath(path.Join(append([]string{g.Path}, p...)...))
 }
 
 func ParseGcsPath(s string) (GCSPath, error) {
