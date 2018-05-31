@@ -11,7 +11,6 @@ import (
 
 const (
 	DefaultQueueSize            = 10000
-	DefaultProtoMaxSize         = 10000000
 	DefaultAutoReloaderInterval = 11 * time.Minute
 
 	MaxDaysInPast = 30

@@ -1,18 +1,18 @@
 package filab
 
 import (
+	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"io"
 	"path/filepath"
 	"strings"
 
-	"compress/gzip"
-	"compress/zlib"
-
-	"github.com/datainq/filab/fileutils"
 	"github.com/datainq/rwmc"
 	"github.com/orian/pbio"
 )
+
+const DefaultProtoMaxSize = 10000000
 
 type DriverType *string
 
@@ -57,7 +57,7 @@ func New() FileStorage {
 	return &fileStore{
 		bySchemaPrefix:  make(map[string]StorageDriver),
 		byType:          make(map[DriverType]StorageDriver),
-		ProtoMaxSize:    fileutils.DefaultProtoMaxSize,
+		ProtoMaxSize:    DefaultProtoMaxSize,
 		AutoCompression: true,
 	}
 }
