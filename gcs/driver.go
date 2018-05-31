@@ -84,6 +84,19 @@ type GcsDriver struct {
 	m            sync.RWMutex
 }
 
+func New(opts ...Option) *GcsDriver {
+	r := &GcsDriver{}
+	for _, o := range opts {
+		o.apply(r)
+	}
+	if r.connectOnNew {
+		if _, err := r.getClient(); err != nil {
+			panic("cannot connect to GCS")
+		}
+	}
+	return r
+}
+
 func (GcsDriver) Name() string {
 	return googleCloudStorage
 }
