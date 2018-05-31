@@ -38,6 +38,8 @@ type FileStorage interface {
 
 	FileStoreBase
 
+	MustParse(p string) Path
+
 	NewReaderS(p Path) (io.ReadCloser, error)
 	NewPbReaderS(p Path) (pbio.ReadCloser, error)
 
@@ -117,6 +119,14 @@ func (f *fileStore) Parse(s string) (Path, error) {
 		}
 	}
 	return f.local.Parse(s)
+}
+
+func (f *fileStore) MustParse(s string) Path {
+	p, err := f.Parse(s)
+	if err != nil {
+		panic("cannot parse")
+	}
+	return p
 }
 
 func (f *fileStore) Exist(ctx context.Context, p Path) (bool, error) {
