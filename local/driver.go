@@ -88,6 +88,10 @@ func (driver) Exist(_ context.Context, p filab.Path) (bool, error) {
 	return true, nil
 }
 
+func (driver) Delete(_ context.Context, p filab.Path) error {
+	return os.Remove(p.String())
+}
+
 func (driver) NewReader(_ context.Context, p filab.Path) (io.ReadCloser, error) {
 	return os.Open(p.String())
 }

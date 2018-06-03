@@ -19,6 +19,7 @@ type DriverType *string
 type FileStoreBase interface {
 	Parse(s string) (Path, error)
 	Exist(context.Context, Path) (bool, error)
+	Delete(context.Context, Path) error
 	NewReader(context.Context, Path) (io.ReadCloser, error)
 	NewWriter(context.Context, Path) (io.WriteCloser, error)
 	List(context.Context, Path) ([]Path, error)
@@ -131,6 +132,10 @@ func (f *fileStore) MustParse(s string) Path {
 
 func (f *fileStore) Exist(ctx context.Context, p Path) (bool, error) {
 	return f.byType[p.Type()].Exist(ctx, p)
+}
+
+func (f *fileStore) Delete(ctx context.Context, p Path) error {
+	return f.byType[p.Type()].Delete(ctx, p)
 }
 
 func (f *fileStore) NewReader(ctx context.Context, p Path) (io.ReadCloser, error) {

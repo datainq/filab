@@ -17,12 +17,12 @@ import (
 var googleCloudStorage = "Google Cloud Storage Driver"
 
 type Option interface {
-	apply(*GcsDriver)
+	apply(*driver)
 }
 
 type withBlock struct{}
 
-func (withBlock) apply(g *GcsDriver) {
+func (withBlock) apply(g *driver) {
 	g.connectOnNew = true
 }
 
@@ -38,13 +38,13 @@ type withKeyFile struct {
 	f string
 }
 
-func (w *withKeyFile) apply(f *GcsDriver) {
+func (w *withKeyFile) apply(f *driver) {
 	f.keyFile = w.f
 }
 
 //type newDir bool
 //
-//func (newDir) apply(f *GcsDriver) {
+//func (newDir) apply(f *driver) {
 //	f.createNewDirs = true
 //}
 //
@@ -60,7 +60,7 @@ type withClient struct {
 	c *storage.Client
 }
 
-func (w withClient) apply(f *GcsDriver) {
+func (w withClient) apply(f *driver) {
 	f.client = w.c
 }
 
@@ -68,7 +68,7 @@ type withTimeout struct {
 	timeout time.Duration
 }
 
-func (w withTimeout) apply(f *GcsDriver) {
+func (w withTimeout) apply(f *driver) {
 	f.timeout = w.timeout
 }
 
@@ -76,7 +76,7 @@ func WithTimeout(t time.Duration) Option {
 	return withTimeout{t}
 }
 
-type GcsDriver struct {
+type driver struct {
 	connectOnNew bool
 	timeout      time.Duration
 	keyFile      string
@@ -84,8 +84,8 @@ type GcsDriver struct {
 	m            sync.RWMutex
 }
 
-func New(opts ...Option) *GcsDriver {
-	r := &GcsDriver{}
+func New(opts ...Option) *driver {
+	r := &driver{}
 	for _, o := range opts {
 		o.apply(r)
 	}
@@ -97,11 +97,11 @@ func New(opts ...Option) *GcsDriver {
 	return r
 }
 
-func (GcsDriver) Name() string {
+func (driver) Name() string {
 	return googleCloudStorage
 }
 
-func (GcsDriver) Scheme() string {
+func (driver) Scheme() string {
 	return "gs"
 }
 
@@ -109,15 +109,15 @@ func Type() filab.DriverType {
 	return filab.DriverType(&googleCloudStorage)
 }
 
-func (GcsDriver) Type() filab.DriverType {
+func (driver) Type() filab.DriverType {
 	return Type()
 }
 
-func (*GcsDriver) Parse(s string) (filab.Path, error) {
+func (*driver) Parse(s string) (filab.Path, error) {
 	return ParseGcsPath(s)
 }
 
-func (f *GcsDriver) getClient() (*storage.Client, error) {
+func (f *driver) getClient() (*storage.Client, error) {
 	f.m.RLock()
 	if f.client != nil {
 		f.m.RUnlock()
@@ -143,7 +143,7 @@ func (f *GcsDriver) getClient() (*storage.Client, error) {
 	return f.client, err
 }
 
-func (g *GcsDriver) Exist(ctx context.Context, p filab.Path) (bool, error) {
+func (g *driver) Exist(ctx context.Context, p filab.Path) (bool, error) {
 	c, err := g.getClient()
 	if err != nil {
 		return false, err
@@ -158,7 +158,16 @@ func (g *GcsDriver) Exist(ctx context.Context, p filab.Path) (bool, error) {
 	return true, nil
 }
 
-func (g *GcsDriver) NewReader(ctx context.Context, p filab.Path) (io.ReadCloser, error) {
+func (g *driver) Delete(ctx context.Context, p filab.Path) error {
+	c, err := g.getClient()
+	if err != nil {
+		return err
+	}
+	gp := p.(GCSPath)
+	return c.Bucket(gp.Bucket).Object(gp.Path).Delete(ctx)
+}
+
+func (g *driver) NewReader(ctx context.Context, p filab.Path) (io.ReadCloser, error) {
 	c, err := g.getClient()
 	if err != nil {
 		return nil, err
@@ -167,7 +176,7 @@ func (g *GcsDriver) NewReader(ctx context.Context, p filab.Path) (io.ReadCloser,
 	return c.Bucket(gp.Bucket).Object(gp.Path).NewReader(ctx)
 }
 
-func (g *GcsDriver) NewWriter(ctx context.Context, p filab.Path) (io.WriteCloser, error) {
+func (g *driver) NewWriter(ctx context.Context, p filab.Path) (io.WriteCloser, error) {
 	c, err := g.getClient()
 	if err != nil {
 		return nil, err
@@ -176,7 +185,7 @@ func (g *GcsDriver) NewWriter(ctx context.Context, p filab.Path) (io.WriteCloser
 	return c.Bucket(gp.Bucket).Object(gp.Path).NewWriter(ctx), nil
 }
 
-func (g *GcsDriver) List(ctx context.Context, p filab.Path) ([]filab.Path, error) {
+func (g *driver) List(ctx context.Context, p filab.Path) ([]filab.Path, error) {
 	gs := p.(GCSPath)
 	c, err := g.getClient()
 	if err != nil {
@@ -200,7 +209,7 @@ func (g *GcsDriver) List(ctx context.Context, p filab.Path) ([]filab.Path, error
 	return ret, nil
 }
 
-func (*GcsDriver) Walk(context.Context, filab.Path, filepath.WalkFunc) {
+func (*driver) Walk(context.Context, filab.Path, filepath.WalkFunc) {
 	panic("implement me")
 }
 
