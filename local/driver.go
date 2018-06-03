@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/datainq/filab"
@@ -97,6 +98,9 @@ func (driver) NewReader(_ context.Context, p filab.Path) (io.ReadCloser, error) 
 }
 
 func (d driver) NewWriter(_ context.Context, p filab.Path) (io.WriteCloser, error) {
+	if d.createNewDirs {
+		os.MkdirAll(path.Dir(p.String()), d.dirMode)
+	}
 	return os.OpenFile(p.String(), os.O_CREATE|os.O_WRONLY, d.fileMode)
 }
 
