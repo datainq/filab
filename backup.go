@@ -10,17 +10,18 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
 )
 
 // AggregateToGcs copies a messages from all files into one dest path.
-func AggregateToGcs(gceClient *CloudStorageClient, ctx context.Context, files []string,
+func AggregateToGcs(gceClient *storage.Client, ctx context.Context, files []string,
 	destGsPath string) error {
 	var w io.WriteCloser
 	// TODO should not overwrite without checking the size / checksum
-	gceWriter, err := gceClient.CreateWriter(ctx, destGsPath, true)
+	gceWriter, err := GcsCreateWriter(gceClient, ctx, destGsPath, true)
 	if err != nil {
 		logrus.Errorf("cannot create dest cloud object %s: %s", destGsPath, err)
 		return err
@@ -28,18 +29,15 @@ func AggregateToGcs(gceClient *CloudStorageClient, ctx context.Context, files []
 	w, err = MaybeAddCompression(destGsPath, gceWriter)
 	if err != nil {
 		logrus.Fatalf("cannot add compression: %s", err)
-		gceWriter.CloseWithError(err)
 		return err
 	}
 
 	if err := AggregateProtoFiles(files, w); err != nil {
 		logrus.Errorf("aggregation err: %s", err)
-		gceWriter.CloseWithError(err)
 		return err
 	}
 
 	logrus.Infof("successfully backuped up: %s", destGsPath)
-
 	if err = w.Close(); err != nil {
 		logrus.Errorf("error closing bucket object: %s", err)
 		return err
@@ -62,7 +60,7 @@ type Backuper struct {
 	guardRun     *sync.Mutex
 	pleaseFinish chan struct{}
 	done         chan struct{}
-	gceClient    *CloudStorageClient
+	gceClient    *storage.Client
 }
 
 func NewBackuper(interval time.Duration, gcsPath GCSPath, key string, delete bool) *Backuper {
@@ -104,7 +102,9 @@ func (b *Backuper) Stop() {
 	}
 }
 
-func (b *Backuper) backupAggregated(gceClient *CloudStorageClient, baseCtx context.Context) error {
+func (b *Backuper) backupAggregated(
+	gceClient *storage.Client, baseCtx context.Context) error {
+
 	for len(b.inProgress) > 0 {
 		mt := b.inProgress[0]
 		files := []string{}
@@ -119,6 +119,7 @@ func (b *Backuper) backupAggregated(gceClient *CloudStorageClient, baseCtx conte
 		dest := path.Join(b.GcsPath.Path, mt.t.Format("2006/01/02/150405")+".pb.gz")
 		ctx, canc := context.WithTimeout(baseCtx, time.Minute)
 		if err := AggregateToGcs(gceClient, ctx, files, dest); err != nil {
+			canc()
 			return err
 		}
 		canc()
@@ -135,7 +136,7 @@ func (b *Backuper) backupAggregated(gceClient *CloudStorageClient, baseCtx conte
 	return nil
 }
 
-func (b *Backuper) backup(gceClient *CloudStorageClient, baseCtx context.Context) error {
+func (b *Backuper) backup(gceClient *storage.Client, baseCtx context.Context) error {
 	var retErr error
 	var left []ft
 	for _, mt := range b.inProgress {
@@ -163,12 +164,12 @@ func (b *Backuper) backup(gceClient *CloudStorageClient, baseCtx context.Context
 	return nil
 }
 
-func (b *Backuper) getClient() (*CloudStorageClient, error) {
+func (b *Backuper) getClient() (*storage.Client, error) {
 	gceClient := b.gceClient
 	if gceClient == nil {
 		logrus.Debug("connect to Cloud Storage")
 		var err error
-		gceClient, err = NewCloudStorageClient(b.GcsPath.Bucket, b.GceKeyFile)
+		gceClient, err = ConnectToCloud(b.GceKeyFile)
 		if err != nil {
 			return nil, errwrap.Wrapf("cannot create GCE client: {{err}}", err)
 		}
