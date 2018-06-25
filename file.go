@@ -1,8 +1,10 @@
 package filab
 
 import (
+	"archive/zip"
 	"compress/gzip"
 	"compress/zlib"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -22,6 +24,22 @@ func MustCreateReader(p string) io.ReadCloser {
 }
 
 func NewFileReader(file string) (f io.ReadCloser, err error) {
+	if strings.HasSuffix(file, ".zip") {
+		f, err := zip.OpenReader(file)
+		if err != nil {
+			return nil, err
+		}
+		if len(f.File) != 1 {
+			return nil, errors.New("ZIP file not exactly 1 file")
+		}
+		r, err := f.File[0].Open()
+		if err != nil {
+			f.Close()
+			return nil, err
+		}
+		return rwmc.NewReadMultiCloser(r, f), nil
+	}
+
 	f, err = os.Open(file)
 	if err != nil {
 		return nil, err
