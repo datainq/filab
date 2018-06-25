@@ -24,7 +24,7 @@ type CloudStorageClient struct {
 	bucket     *storage.BucketHandle
 }
 
-func NewCloudStorageClient(bucketName string, keyFile string) (*CloudStorageClient, error) {
+func ConnectToCloud(keyFile string) (*storage.Client, error) {
 	opts := []option.ClientOption{
 		option.WithGRPCDialOption(grpc.WithBlock()), // enforces a wait until connected
 	}
@@ -33,7 +33,11 @@ func NewCloudStorageClient(bucketName string, keyFile string) (*CloudStorageClie
 	}
 	ctx, canc := context.WithTimeout(context.Background(), 10*time.Second)
 	defer canc()
-	client, err := storage.NewClient(ctx, opts...)
+	return storage.NewClient(ctx, opts...)
+}
+
+func NewCloudStorageClient(bucketName string, keyFile string) (*CloudStorageClient, error) {
+	client, err := ConnectToCloud(keyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -57,10 +61,12 @@ func (g *CloudStorageClient) ForBucket(bucket string) *CloudStorageClient {
 
 var ErrObjectExist = errors.New("storage: object does exist")
 
-func (g *CloudStorageClient) CreateWriter(ctx context.Context, fileName string,
-	overwrite bool) (*storage.Writer, error) {
-	object := g.bucket.Object(fileName)
-
+func GcsCreateWriter(client *storage.Client, ctx context.Context, gsPath string, overwrite bool) (*storage.Writer, error) {
+	p, err := ParseGcsPath(gsPath)
+	if err != nil {
+		return nil, err
+	}
+	object := client.Bucket(p.Bucket).Object(p.Path)
 	if !overwrite {
 		_, err := object.Attrs(ctx)
 		if err == nil {
@@ -79,6 +85,12 @@ func (g *CloudStorageClient) CreateWriter(ctx context.Context, fileName string,
 		//"x-for-date":   "",
 	}
 	return w, nil
+}
+
+func (g *CloudStorageClient) CreateWriter(ctx context.Context, fileName string,
+	overwrite bool) (*storage.Writer, error) {
+	p := (&GCSPath{g.bucketName, fileName}).String()
+	return GcsCreateWriter(g.client, ctx, p, overwrite)
 }
 
 func (g *CloudStorageClient) Reader(filepath string, ctx context.Context) (*storage.Reader, error) {
@@ -135,16 +147,16 @@ func (g *CloudStorageClient) Find(s string) *storage.ObjectIterator {
 func CopyToCloudF(gclient *CloudStorageClient, filePath, objectPath string) {
 	ctx, canc := context.WithTimeout(context.Background(), time.Minute)
 	defer canc()
-	if err := CopyToCloud(gclient, ctx, filePath, objectPath); err != nil {
+	if err := CopyToCloud(gclient.client, ctx, filePath, objectPath); err != nil {
 		logrus.Fatal(err)
 	}
 }
 
-func CopyToCloud(gclient *CloudStorageClient, ctx context.Context,
+func CopyToCloud(gclient *storage.Client, ctx context.Context,
 	filePath, objectPath string) error {
 
 	logrus.Debugf("creating cloud writer: %s", objectPath)
-	writer, err := gclient.CreateWriter(ctx, objectPath, true)
+	writer, err := GcsCreateWriter(gclient, ctx, objectPath, true)
 	if err != nil {
 		return errwrap.Wrapf("cannot create writer: {{err}}", err)
 	}
