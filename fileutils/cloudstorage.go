@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"github.com/datainq/filab/gcs"
 )
 
 type CloudStorageClient struct {
@@ -62,7 +63,7 @@ func (g *CloudStorageClient) ForBucket(bucket string) *CloudStorageClient {
 var ErrObjectExist = errors.New("storage: object does exist")
 
 func GcsCreateWriter(client *storage.Client, ctx context.Context, gsPath string, overwrite bool) (*storage.Writer, error) {
-	p, err := ParseGcsPath(gsPath)
+	p, err := gcs.ParseGcsPath(gsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +90,7 @@ func GcsCreateWriter(client *storage.Client, ctx context.Context, gsPath string,
 
 func (g *CloudStorageClient) CreateWriter(ctx context.Context, fileName string,
 	overwrite bool) (*storage.Writer, error) {
-	p := (&GCSPath{g.bucketName, fileName}).String()
+	p := (&gcs.GCSPath{g.bucketName, fileName}).String()
 	return GcsCreateWriter(g.client, ctx, p, overwrite)
 }
 
@@ -163,11 +164,13 @@ func CopyToCloud(gclient *storage.Client, ctx context.Context,
 	logrus.Debugf("creating local reader")
 	src, err := os.Open(filePath)
 	if err != nil {
+		writer.CloseWithError(err)
 		return errwrap.Wrapf("cannot open file to read: {{err}}", err)
 	}
 	defer src.Close()
 	logrus.Debugf("copying")
 	if _, err = io.Copy(writer, src); err != nil {
+		writer.CloseWithError(err)
 		return errwrap.Wrapf("problem with copying content: {{err}}", err)
 	}
 	logrus.Debugf("closing cloud writer")
