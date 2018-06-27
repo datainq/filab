@@ -183,19 +183,14 @@ func MaybeAddCompression(file string, w io.WriteCloser) (io.WriteCloser, error) 
 	return w, nil
 }
 
-func MaybeAddDecompression(file string, w io.WriteCloser) (io.WriteCloser, error) {
-	if strings.HasSuffix(file, ".7z") {
-		w1, err := zlib.NewWriterLevel(w, zlib.BestCompression)
-		if err != nil {
-			return w1, err
-		}
-		return rwmc.NewWriteMultiCloser(w1, w), nil
-	} else if strings.HasSuffix(file, ".gz") {
-		w1, err := gzip.NewWriterLevel(w, gzip.BestCompression)
-		if err != nil {
-			return w1, err
-		}
-		return rwmc.NewWriteMultiCloser(w1, w), nil
+func MaybeAddDecompression(file string, r io.ReadCloser) (io.ReadCloser, error) {
+	if r == nil {
+		return nil,nil
 	}
-	return w, nil
+	if strings.HasSuffix(file, ".7z") {
+		return zlib.NewReader(r)
+	} else if strings.HasSuffix(file, ".gz") {
+		return gzip.NewReader(r)
+	}
+	return r, nil
 }
