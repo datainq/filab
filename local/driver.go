@@ -117,6 +117,9 @@ func (driver) List(_ context.Context, p filab.Path) ([]filab.Path, error) {
 
 func (driver) Walk(_ context.Context, p filab.Path, f filab.WalkFunc) error {
 	return filepath.Walk(p.String(), func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
 		return f(LocalPath(path), err)
 	})
 }
