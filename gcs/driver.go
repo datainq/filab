@@ -191,8 +191,7 @@ func (g *driver) List(ctx context.Context, p filab.Path) ([]filab.Path, error) {
 		return nil, err
 	}
 	objIter := c.Bucket(gs.Bucket).Objects(ctx, &storage.Query{
-		Delimiter: "/",
-		Prefix:    gs.Path,
+		Prefix: gs.Path,
 	})
 	var ret []filab.Path
 	for {
@@ -215,8 +214,7 @@ func (g *driver) Walk(ctx context.Context, p filab.Path, f filab.WalkFunc) error
 		return err
 	}
 	objIter := c.Bucket(gs.Bucket).Objects(ctx, &storage.Query{
-		Delimiter: "/",
-		Prefix:    gs.Path,
+		Prefix: gs.Path,
 	})
 	for {
 		attr, err := objIter.Next()
@@ -226,7 +224,7 @@ func (g *driver) Walk(ctx context.Context, p filab.Path, f filab.WalkFunc) error
 			}
 			return err
 		}
-		if err = f(p.Join(attr.Name), nil); err  != nil {
+		if err = f(gs.WithPath(attr.Name), nil); err != nil {
 			return err
 		}
 	}
