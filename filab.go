@@ -5,7 +5,6 @@ import (
 	"compress/zlib"
 	"context"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/datainq/rwmc"
@@ -16,6 +15,8 @@ const DefaultProtoMaxSize = 10000000
 
 type DriverType *string
 
+type WalkFunc func(p Path, err error) error
+
 type FileStoreBase interface {
 	Parse(s string) (Path, error)
 	Exist(context.Context, Path) (bool, error)
@@ -23,7 +24,7 @@ type FileStoreBase interface {
 	NewReader(context.Context, Path) (io.ReadCloser, error)
 	NewWriter(context.Context, Path) (io.WriteCloser, error)
 	List(context.Context, Path) ([]Path, error)
-	Walk(context.Context, Path, filepath.WalkFunc)
+	Walk(context.Context, Path, WalkFunc) error
 }
 
 type StorageDriver interface {
@@ -150,8 +151,8 @@ func (f *fileStore) List(ctx context.Context, p Path) ([]Path, error) {
 	return f.byType[p.Type()].List(ctx, p)
 }
 
-func (f *fileStore) Walk(ctx context.Context, p Path, w filepath.WalkFunc) {
-	f.byType[p.Type()].Walk(ctx, p, w)
+func (f *fileStore) Walk(ctx context.Context, p Path, w WalkFunc) error {
+	return f.byType[p.Type()].Walk(ctx, p, w)
 }
 
 func (f *fileStore) RegisterDriver(driver StorageDriver) error {
@@ -166,6 +167,23 @@ func (f *fileStore) RegisterDriver(driver StorageDriver) error {
 }
 
 func MaybeAddCompression(file string, w io.WriteCloser) (io.WriteCloser, error) {
+	if strings.HasSuffix(file, ".7z") {
+		w1, err := zlib.NewWriterLevel(w, zlib.BestCompression)
+		if err != nil {
+			return w1, err
+		}
+		return rwmc.NewWriteMultiCloser(w1, w), nil
+	} else if strings.HasSuffix(file, ".gz") {
+		w1, err := gzip.NewWriterLevel(w, gzip.BestCompression)
+		if err != nil {
+			return w1, err
+		}
+		return rwmc.NewWriteMultiCloser(w1, w), nil
+	}
+	return w, nil
+}
+
+func MaybeAddDecompression(file string, w io.WriteCloser) (io.WriteCloser, error) {
 	if strings.HasSuffix(file, ".7z") {
 		w1, err := zlib.NewWriterLevel(w, zlib.BestCompression)
 		if err != nil {

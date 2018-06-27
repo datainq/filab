@@ -3,7 +3,6 @@ package gcs
 import (
 	"context"
 	"io"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -209,8 +208,29 @@ func (g *driver) List(ctx context.Context, p filab.Path) ([]filab.Path, error) {
 	return ret, nil
 }
 
-func (*driver) Walk(context.Context, filab.Path, filepath.WalkFunc) {
-	panic("implement me")
+func (g *driver) Walk(ctx context.Context, p filab.Path, f filab.WalkFunc) error {
+	gs := p.(GCSPath)
+	c, err := g.getClient()
+	if err != nil {
+		return err
+	}
+	objIter := c.Bucket(gs.Bucket).Objects(ctx, &storage.Query{
+		Delimiter: "/",
+		Prefix:    gs.Path,
+	})
+	for {
+		attr, err := objIter.Next()
+		if err != nil {
+			if err == iterator.Done {
+				break
+			}
+			return err
+		}
+		if err = f(p.Join(attr.Name), nil); err  != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //type FileHelper struct {

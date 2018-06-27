@@ -26,6 +26,8 @@ func (c *CloseBuffer) Write(b []byte) (n int, err error) {
 
 func TestAggregate(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+	filab.RegisterDriver(local.New())
+
 	files := []filab.Path{
 		local.LocalPath("testdata/20170126/143235"),
 		local.LocalPath("testdata/20170126/143436"),

@@ -8,7 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func AggregateProtoFiles(storage filab.FileStorage, files []filab.Path, dest io.Writer) error {
+func AggregateProtoFiles(storage filab.FileStorage, files []filab.Path,
+	dest io.Writer) error {
+
 	for _, f := range files {
 		r, err := storage.NewReaderS(f)
 		if err != nil {
@@ -18,7 +20,7 @@ func AggregateProtoFiles(storage filab.FileStorage, files []filab.Path, dest io.
 			continue
 		}
 
-		r1 := pbio.NewDelimitedCopier(r, DefaultProtoMaxSize) // 1MB
+		r1 := pbio.NewDelimitedCopier(r, filab.DefaultProtoMaxSize) // 1MB
 		n := 0
 		for err = nil; err == nil; err = r1.CopyMsg(dest) {
 			n++

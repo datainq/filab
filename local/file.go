@@ -13,6 +13,7 @@ import (
 
 	"github.com/datainq/filab"
 	"github.com/sirupsen/logrus"
+	"github.com/datainq/rwmc"
 )
 
 func MustCreateReader(p string) io.ReadCloser {

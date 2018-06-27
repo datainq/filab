@@ -6,9 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
-
 	"github.com/datainq/filab"
+	"path/filepath"
 )
 
 const (
@@ -116,8 +115,10 @@ func (driver) List(_ context.Context, p filab.Path) ([]filab.Path, error) {
 	return s, nil
 }
 
-func (driver) Walk(context.Context, filab.Path, filepath.WalkFunc) {
-	panic("implement me")
+func (driver) Walk(_ context.Context, p filab.Path, f filab.WalkFunc) error {
+	return filepath.Walk(p.String(), func(path string, info os.FileInfo, err error) error {
+		return f(LocalPath(path), err)
+	})
 }
 
 func New(opts ...Option) *driver {

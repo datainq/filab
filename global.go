@@ -3,8 +3,6 @@ package filab
 import (
 	"context"
 	"io"
-	"path/filepath"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -40,6 +38,6 @@ func List(ctx context.Context, p Path) ([]Path, error) {
 	return defaultStore.List(ctx, p)
 }
 
-func Walk(ctx context.Context, p Path, w filepath.WalkFunc) {
+func Walk(ctx context.Context, p Path, w WalkFunc) {
 	defaultStore.Walk(ctx, p, w)
 }
