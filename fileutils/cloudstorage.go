@@ -1,4 +1,4 @@
-package filab
+package fileutils
 
 import (
 	"compress/gzip"
@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/datainq/filab"
+	"github.com/datainq/filab/gcs"
 	"github.com/datainq/rwmc"
 	"github.com/hashicorp/errwrap"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
-	"github.com/datainq/filab/gcs"
 )
 
 type CloudStorageClient struct {
@@ -148,14 +149,41 @@ func (g *CloudStorageClient) Find(s string) *storage.ObjectIterator {
 func CopyToCloudF(gclient *CloudStorageClient, filePath, objectPath string) {
 	ctx, canc := context.WithTimeout(context.Background(), time.Minute)
 	defer canc()
-	if err := CopyToCloud(gclient.client, ctx, filePath, objectPath); err != nil {
+	if err := OldCopyToCloud(gclient.client, ctx, filePath, objectPath); err != nil {
 		logrus.Fatal(err)
 	}
 }
 
-func CopyToCloud(gclient *storage.Client, ctx context.Context,
+func CopyToCloud(baseCtx context.Context, storage filab.FileStorage,
+	src, dest filab.Path) error {
+
+	ctx, canc := context.WithCancel(baseCtx)
+	defer canc()
+	r, err := storage.NewReader(ctx, src)
+	if err != nil {
+		logrus.Fatalf("cannot open reader: %s", src)
+	}
+	defer r.Close()
+
+	w, err := storage.NewWriter(ctx, dest)
+	if err != nil {
+		logrus.Fatalf("cannot open writer: %s", dest)
+	}
+	defer w.Close()
+
+	if size, err := io.Copy(w, r); err != nil {
+		logrus.Fatalf("cannot copy: %s", err)
+	} else {
+		logrus.Infof("copied %d bytes", size)
+	}
+	return nil
+}
+
+func OldCopyToCloud(gclient *storage.Client, baseCtx context.Context,
 	filePath, objectPath string) error {
 
+	ctx, canc := context.WithCancel(baseCtx)
+	defer canc()
 	logrus.Debugf("creating cloud writer: %s", objectPath)
 	writer, err := GcsCreateWriter(gclient, ctx, objectPath, true)
 	if err != nil {
@@ -164,13 +192,11 @@ func CopyToCloud(gclient *storage.Client, ctx context.Context,
 	logrus.Debugf("creating local reader")
 	src, err := os.Open(filePath)
 	if err != nil {
-		writer.CloseWithError(err)
 		return errwrap.Wrapf("cannot open file to read: {{err}}", err)
 	}
 	defer src.Close()
 	logrus.Debugf("copying")
 	if _, err = io.Copy(writer, src); err != nil {
-		writer.CloseWithError(err)
 		return errwrap.Wrapf("problem with copying content: {{err}}", err)
 	}
 	logrus.Debugf("closing cloud writer")
