@@ -161,22 +161,19 @@ func CopyToCloud(baseCtx context.Context, storage filab.FileStorage,
 	defer canc()
 	r, err := storage.NewReader(ctx, src)
 	if err != nil {
-		logrus.Fatalf("cannot open reader: %s", src)
+		return err
 	}
 	defer r.Close()
 
 	w, err := storage.NewWriter(ctx, dest)
 	if err != nil {
-		logrus.Fatalf("cannot open writer: %s", dest)
+		return err
 	}
-	defer w.Close()
 
-	if size, err := io.Copy(w, r); err != nil {
-		logrus.Fatalf("cannot copy: %s", err)
-	} else {
-		logrus.Infof("copied %d bytes", size)
+	if _, err := io.Copy(w, r); err != nil {
+		return err
 	}
-	return nil
+	return w.Close()
 }
 
 func OldCopyToCloud(gclient *storage.Client, baseCtx context.Context,

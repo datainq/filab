@@ -44,9 +44,10 @@ func AggregateToGcs(storage filab.FileStorage, ctx context.Context,
 }
 
 type Backuper struct {
-	Interval   time.Duration
-	GcsPath    filab.Path
-	GceKeyFile string
+	Interval    time.Duration
+	CopyTimeout time.Duration
+	GcsPath     filab.Path
+	GceKeyFile  string
 	// If set true, the proto files will be first aggregated.
 	Aggregate         bool
 	DeleteAfterBackup bool
@@ -68,6 +69,7 @@ func NewBackuper(storage filab.FileStorage, destPath filab.Path,
 		Interval:          interval,
 		GcsPath:           destPath,
 		DeleteAfterBackup: delete,
+		CopyTimeout:       2 * time.Minute,
 		storage:           storage,
 		guardModify:       &sync.Mutex{},
 		guardRun:          &sync.Mutex{},
@@ -112,7 +114,7 @@ func (b *Backuper) backupAggregated(baseCtx context.Context) error {
 		}
 
 		dest := b.GcsPath.Join(mt.t.Format("2006/01/02/150405") + ".pb.gz")
-		ctx, canc := context.WithTimeout(baseCtx, time.Minute)
+		ctx, canc := context.WithTimeout(baseCtx, b.CopyTimeout)
 		if err := AggregateToGcs(b.storage, ctx, files, dest); err != nil {
 			return err
 		}
@@ -139,7 +141,7 @@ func (b *Backuper) backup(baseCtx context.Context) error {
 		if b.StripSrcPrefix != "" {
 			destPath = b.GcsPath.Join(strings.TrimPrefix(srcPath.String(), b.StripSrcPrefix))
 		}
-		ctx, canc := context.WithTimeout(baseCtx, time.Minute)
+		ctx, canc := context.WithTimeout(baseCtx, b.CopyTimeout)
 		err := CopyToCloud(ctx, b.storage, srcPath, destPath)
 		canc()
 		if err != nil {
