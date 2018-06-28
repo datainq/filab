@@ -13,7 +13,7 @@ import (
 
 const (
 	DefaultDirPerm  = 0740
-	DefaultFilePerm = 0540
+	DefaultFilePerm = 0640
 )
 
 var localDisk = "local disk"
