@@ -44,6 +44,18 @@ func (g GCSPath) WithPath(p string) GCSPath {
 	return g
 }
 
+func (l GCSPath) Dir() filab.Path {
+	return l.WithPath(path.Dir(l.Path))
+}
+
+func (l GCSPath) DirStr() string {
+	return l.Dir().String()
+}
+
+func (l GCSPath) BaseStr() string {
+	return l.WithPath(path.Base(l.Path)).String()
+}
+
 func ParseGcsPath(s string) (GCSPath, error) {
 	var ret GCSPath
 	u, err := url.Parse(s)

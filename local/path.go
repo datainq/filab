@@ -31,3 +31,15 @@ func (LocalPath) Type() filab.DriverType {
 func ParseLocalPath(s string) (LocalPath, error) {
 	return LocalPath(s), nil
 }
+
+func (l LocalPath) Dir() filab.Path {
+	return LocalPath(l.DirStr())
+}
+
+func (l LocalPath) DirStr() string {
+	return path.Dir(l.String())
+}
+
+func (l LocalPath) BaseStr() string {
+	return path.Base(l.String())
+}

@@ -2,11 +2,15 @@ package fileutils
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"regexp"
+	"strconv"
 	"time"
 
-	"fmt"
-
 	"github.com/datainq/filab"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -98,61 +102,66 @@ func GenSharded(dirPath filab.Path, prefix string, numShards int, suffix string)
 //	return FindLastForDate(client, gs, pattern, time.Now().UTC())
 //}
 //
-//
-//// TODO URGENT this is complex and needs tests
-//func FindAnyForDateSharded(client *storage.Client, gs GCSPath, pattern *regexp.Regexp, date time.Time) ([]string, error) {
-//	if pattern.NumSubexp() != 3 {
-//		logrus.Errorf("expecting a pattern with 3 subexp, got: %d", pattern.NumSubexp())
-//	}
-//	bucket := client.Bucket(gs.Bucket)
-//
-//	pathPrefix := gs.Join(date.Format("2006/01/02")).(GCSPath)
-//	logrus.Debugf("search with basePath: %s", pathPrefix)
-//	objc := BucketFind(bucket, pathPrefix.Path)
-//	var names []string
-//	processed := make(map[string]bool)
-//	for objc != nil {
-//		atr, err := objc.Next()
-//		if err == iterator.Done {
-//			break
-//		} else if err != nil {
-//			return nil, err
-//		}
-//		if len(atr.Prefix) > 0 {
-//			logrus.Debugf("prefix: %s", atr.Prefix)
-//			continue
-//		}
-//		if processed[atr.Name] {
-//			logrus.Debugf("seems processed: %s", atr.Name)
-//			continue
-//		}
-//		if !pattern.MatchString(atr.Name) {
-//			logrus.Debugf("does not match pattern: %s", atr.Name)
-//			continue
-//		}
-//		submatches := pattern.FindStringSubmatch(atr.Name)
-//		if len(submatches) != 4 {
-//			logrus.Debugf("not enough submatches: %s", atr.Prefix)
-//			continue
-//		}
-//		numShards, err := strconv.ParseInt(submatches[2], 10, 64)
-//		if err != nil {
-//			logrus.Debugf("cannot parse shard num: %s", atr.Name)
-//			continue
-//		}
-//		shards := GenSharded(pathPrefix, submatches[1], int(numShards), submatches[3])
-//		for _, shard := range shards {
-//			processed[shard.String()] = true
-//		}
-//		if !ObjectsExist(client, shards...) {
-//			logrus.Debugf("not all shards exist: %s", atr.Name)
-//			continue
-//		}
-//		for _, shard := range shards {
-//			names = append(names, shard.String())
-//		}
-//		return names, nil
-//	}
-//	return nil, os.ErrNotExist
-//}
+
+func ObjectsExist(storage filab.FileStorage, files ...filab.Path) bool {
+	for _, v := range files {
+		if ok, err := storage.Exist(context.Background(), v); !ok {
+			logrus.Debugf("not exist: %s", v.String())
+			return false
+		} else if err != nil {
+			logrus.Errorf("error checking object existance: %s", err)
+			return false
+		}
+	}
+	return true
+}
+
+// TODO URGENT this is complex and needs tests
+// FindSharded looks up a set of files matching sharding pattern.
+func FindSharded(storage filab.FileStorage, gs filab.Path,
+	pattern *regexp.Regexp) ([]filab.Path, error) {
+
+	if pattern.NumSubexp() != 3 {
+		logrus.Errorf("expecting a pattern with 3 subexp, got: %d", pattern.NumSubexp())
+	}
+
+	logrus.Debugf("search with basePath: %s", gs)
+	var names []filab.Path
+	processed := make(map[string]bool)
+	done := errors.New("done")
+	err := storage.Walk(context.Background(), gs, func(p filab.Path, err error) error {
+		if !pattern.MatchString(p.String()) {
+			logrus.Debugf("does not match pattern: %s", p)
+			return nil
+		}
+		submatches := pattern.FindStringSubmatch(p.String())
+		if len(submatches) != 4 {
+			logrus.Debugf("not enough submatches: %s", p)
+			return nil
+		}
+		numShards, err := strconv.ParseInt(submatches[2], 10, 64)
+		if err != nil {
+			logrus.Debugf("cannot parse shard num: %s", p)
+			return nil
+		}
+		shards := GenSharded(p.Dir(), submatches[1], int(numShards), submatches[3])
+		for _, shard := range shards {
+			processed[shard.String()] = true
+		}
+		if !ObjectsExist(storage, shards...) {
+			logrus.Debugf("not all shards exist: %s", p.String())
+			return nil
+		}
+		names = shards
+
+		return done
+	})
+
+	if err == done {
+		return names, nil
+	}
+
+	return nil, os.ErrNotExist
+}
+
 //
