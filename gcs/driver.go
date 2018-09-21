@@ -202,7 +202,7 @@ func (g *driver) List(ctx context.Context, p filab.Path) ([]filab.Path, error) {
 			}
 			return nil, err
 		}
-		ret = append(ret, p.Join(attr.Name))
+		ret = append(ret, gs.WithPath(attr.Name))
 	}
 	return ret, nil
 }
