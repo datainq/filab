@@ -53,7 +53,7 @@ func (l GCSPath) DirStr() string {
 }
 
 func (l GCSPath) BaseStr() string {
-	return l.WithPath(path.Base(l.Path)).String()
+	return path.Base(l.Path)
 }
 
 func ParseGcsPath(s string) (GCSPath, error) {
